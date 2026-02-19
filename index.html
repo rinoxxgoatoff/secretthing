@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Ma Mini App</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        body { background-color: white; text-align: center; font-family: sans-serif; }
+        button { padding: 10px 20px; background: #0088cc; color: white; border: none; border-radius: 5px; }
+    </style>
+</head>
+<body>
+    <h1>Bienvenue sur mon App</h1>
+    <p>Cliquez sur le bouton pour interagir :</p>
+    <button id="mainButton">Envoyer au Bot</button>
+
+    <script>
+        let tg = window.Telegram.WebApp; // Initialiser l'app Telegram
+        tg.expand(); // Agrandir la fenêtre
+
+        document.getElementById("mainButton").addEventListener("click", () => {
+            tg.sendData("Action effectuée depuis l'interface !"); // Envoie une info à ton Python
+            tg.close(); // Ferme l'app après l'action
+        });
+    </script>
+</body>
+</html>
