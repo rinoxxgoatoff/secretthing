@@ -1,139 +1,148 @@
-import tkinter as tk
-from tkinter import ttk, messagebox
-import random
-import string
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Crypto Wallet Scanner</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        :root {
+            --bg: #0f1720; --panel: #111827; --card: #0b1220;
+            --accent: #06b6d4; --btn-green: #10b981; --btn-red: #ef4444;
+            --text: #e6eef6; --subtext: #9aa4af;
+        }
+        body {
+            background-color: var(--bg); color: var(--text);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0; padding: 10px; display: flex; flex-direction: column; align-items: center;
+        }
+        .header {
+            background: var(--panel); width: 100%; max-width: 440px;
+            padding: 15px; border-radius: 10px; display: flex;
+            justify-content: space-between; align-items: center; margin-bottom: 15px;
+        }
+        .status { color: var(--accent); font-weight: bold; font-size: 0.8em; }
+        .main-panel {
+            background: var(--card); width: 100%; max-width: 440px;
+            padding: 15px; border-radius: 10px; box-sizing: border-box;
+        }
+        .iterations { text-align: center; color: var(--subtext); margin-bottom: 10px; }
+        .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 15px; }
+        .grid div { font-size: 0.8em; display: flex; align-items: center; gap: 5px; }
+        .box-title { font-weight: bold; margin: 10px 0 5px 0; font-size: 0.9em; }
+        .listbox {
+            background: #061018; height: 150px; overflow-y: auto;
+            font-family: 'Consolas', monospace; font-size: 0.75em;
+            padding: 10px; border-radius: 5px; color: #9fe6c5; border: 1px solid #1e293b;
+        }
+        .found-box { color: var(--text); height: 100px; }
+        .buttons { display: flex; justify-content: center; gap: 20px; margin-top: 20px; }
+        button {
+            border: none; padding: 10px 25px; border-radius: 5px;
+            color: white; font-weight: bold; cursor: pointer; transition: 0.2s;
+        }
+        .start { background: var(--btn-green); }
+        .stop { background: var(--btn-red); }
+        button:active { opacity: 0.7; }
+    </style>
+</head>
+<body>
 
-# --- CONFIGURATION ORIGINALE ---
-BG, PANEL, CARD = "#0f1720", "#111827", "#0b1220"
-ACCENT, BTN_GREEN, BTN_RED = "#06b6d4", "#10b981", "#ef4444"
-TEXT, SUBTEXT = "#e6eef6", "#9aa4af"
+<div class="header">
+    <span style="font-weight: bold;">Crypto Wallet Scanner</span>
+    <span id="status" class="status">INACTIF</span>
+</div>
 
-CRYPTO_EMOJI = [
-    ("BTC", "₿"), ("ETH", "⬢"), ("LTC", "Ł"),
-    ("BNB", "🟡"), ("SOL", "◎"), ("USDT", "₮"),
-    ("BCH", "Ƀ"), ("DOGE", "Ð"), ("TRX", "🔺"),
-]
-
-# --- TIMINGS STRICTS ---
-FEED_INTERVAL_MS = 45            
-# 1 Heure = 3 600 000 millisecondes
-# Affiche un wallet trouvé toutes les 10 secondes
-FOUND_INTERVAL_MS = 10000
-
-def generate_real_address(crypto_code):
-    b58 = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz"
-    hex_chars = "0123456789abcdef"
-    bech32 = "qpzry9x8gf2tvdw0s3jn54khce6mua7l"
+<div class="main-panel">
+    <div id="iter" class="iterations">Itérations : 143243</div>
     
-    if crypto_code == "BTC":
-        pref = random.choice(["1", "3", "bc1"])
-        size = 28 if pref != "bc1" else 36
-        return pref + ''.join(random.choice(b58 if pref != "bc1" else bech32) for _ in range(size))
-    elif crypto_code == "LTC":
-        pref = random.choice(["L", "M", "ltc1"])
-        size = 30 if pref != "ltc1" else 38
-        return pref + ''.join(random.choice(b58 if pref != "ltc1" else bech32) for _ in range(size))
-    elif crypto_code in ["ETH", "USDT"]:
-        return '0x' + ''.join(random.choice(hex_chars) for _ in range(40))
-    elif crypto_code == "SOL":
-        return ''.join(random.choice(b58) for _ in range(43))
-    elif crypto_code == "DOGE":
-        return 'D' + ''.join(random.choice(b58) for _ in range(33))
-    elif crypto_code == "TRX":
-        return 'T' + ''.join(random.choice(b58) for _ in range(33))
-    elif crypto_code == "BNB":
-        return 'bnb1' + ''.join(random.choice(bech32) for _ in range(38))
-    return '0x' + ''.join(random.choice(hex_chars) for _ in range(35))
+    <div class="grid" id="crypto-grid">
+        </div>
 
-class CryptoUI(tk.Tk):
-    def __init__(self):
-        super().__init__()
-        self.title("Crypto Wallet Scanner")
-        self.configure(bg=BG)
-        self.geometry("480x780")
-        self.resizable(False, False)
-        self.running = False
-        self.iterations = 143243
-        self.crypto_vars = []
-        self.crypto_codes = []
-        self._build_ui()
-        self.counter_label.config(text=f"Itérations : {self.iterations}")
-        self.found_box.delete(0, tk.END)
-        sol_addr = generate_real_address("SOL")
-        self.found_box.insert(tk.END, f"FOUND ► SOL • $154 • {sol_addr}")
-        self.found_box.see(tk.END)
+    <div class="box-title">Feed</div>
+    <div id="feed" class="listbox"></div>
 
-    def _build_ui(self):
-        header = tk.Frame(self, bg=PANEL)
-        header.place(relx=0.5, y=18, anchor=tk.N, width=440, height=64)
-        tk.Label(header, text="Crypto Wallet Scanner", bg=PANEL, fg=TEXT, font=("Segoe UI", 16, "bold")).pack(side=tk.LEFT, padx=12)
-        self.status_label = tk.Label(header, text="inactif", bg=PANEL, fg=ACCENT, font=("Segoe UI", 10, "bold"))
-        self.status_label.pack(side=tk.RIGHT, padx=(0,12))
+    <div class="box-title">Found</div>
+    <div id="found" class="listbox found-box"></div>
 
-        panel = tk.Frame(self, bg=CARD)
-        panel.place(relx=0.5, rely=0.14, anchor=tk.N, width=440, height=620)
+    <div class="buttons">
+        <button class="start" onclick="startScan()">START</button>
+        <button class="stop" onclick="stopScan()">STOP</button>
+    </div>
+</div>
 
-        self.counter_label = tk.Label(panel, text="Itérations : 0", bg=CARD, fg=SUBTEXT, font=("Segoe UI", 10))
-        self.counter_label.pack(pady=10)
+<script>
+    const cryptos = [
+        {c: "BTC", e: "₿"}, {c: "ETH", e: "⬢"}, {c: "LTC", e: "Ł"},
+        {c: "BNB", e: "🟡"}, {c: "SOL", e: "◎"}, {c: "USDT", e: "₮"},
+        {c: "BCH", e: "Ƀ"}, {c: "DOGE", e: "Ð"}, {c: "TRX", e: "🔺"}
+    ];
 
-        grid_frame = tk.Frame(panel, bg=CARD)
-        grid_frame.pack(pady=5)
-        for i, (code, emoji) in enumerate(CRYPTO_EMOJI):
-            var = tk.BooleanVar(value=True)
-            tk.Checkbutton(grid_frame, text=f"{emoji} {code}", variable=var, bg=CARD, fg=TEXT, selectcolor=CARD, font=("Segoe UI", 9)).grid(row=i//3, column=i%3, padx=10, pady=5)
-            self.crypto_vars.append(var)
-            self.crypto_codes.append(code)
+    let running = false;
+    let iterations = 143243;
+    let feedInterval, foundInterval;
 
-        tk.Label(panel, text="Feed", bg=CARD, fg=TEXT, font=("Segoe UI", 11, "bold")).pack(anchor="w", padx=15)
-        self.feed_box = tk.Listbox(panel, height=10, bg="#061018", fg="#9fe6c5", bd=0, highlightthickness=0, font=("Consolas", 10))
-        self.feed_box.pack(fill=tk.X, padx=15, pady=5)
+    // Initialisation de la grille
+    const grid = document.getElementById('crypto-grid');
+    cryptos.forEach(coin => {
+        grid.innerHTML += `<div><input type="checkbox" checked id="check-${coin.c}"> ${coin.e} ${coin.c}</div>`;
+    });
 
-        tk.Label(panel, text="Found", bg=CARD, fg=TEXT, font=("Segoe UI", 11, "bold")).pack(anchor="w", padx=15)
-        self.found_box = tk.Listbox(panel, height=6, bg="#071018", fg=TEXT, bd=0, highlightthickness=0, font=("Consolas", 9))
-        self.found_box.pack(fill=tk.X, padx=15, pady=5)
+    function generateAddress(code) {
+        const chars = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
+        const hex = "0123456789abcdef";
+        let res = "";
+        if(code === "ETH" || code === "USDT") {
+            res = "0x"; for(let i=0; i<40; i++) res += hex[Math.floor(Math.random()*16)];
+        } else {
+            res = code.substring(0,1); for(let i=0; i<30; i++) res += chars[Math.floor(Math.random()*chars.length)];
+        }
+        return res;
+    }
 
-        btn_frame = tk.Frame(panel, bg=CARD)
-        btn_frame.pack(pady=20)
-        tk.Button(btn_frame, text="START", bg=BTN_GREEN, fg="white", font=("Segoe UI", 11, "bold"), command=self.start, width=10).pack(side=tk.LEFT, padx=10)
-        tk.Button(btn_frame, text="STOP", bg=BTN_RED, fg="white", font=("Segoe UI", 11, "bold"), command=self.stop, width=10).pack(side=tk.LEFT, padx=10)
-        # Bouton WITHDRAW supprimé
+    function startScan() {
+        if(running) return;
+        running = true;
+        document.getElementById('status').innerText = "EN COURS";
+        document.getElementById('status').style.color = "#06b6d4";
+        
+        feedInterval = setInterval(() => {
+            const selected = cryptos.filter(c => document.getElementById(`check-${c.c}`).checked);
+            if(selected.length > 0) {
+                const coin = selected[Math.floor(Math.random()*selected.length)];
+                const addr = generateAddress(coin.c);
+                const feed = document.getElementById('feed');
+                feed.innerHTML += `<div>${coin.c} • ${addr}</div>`;
+                feed.scrollTop = feed.scrollHeight;
+                if(feed.childElementCount > 20) feed.removeChild(feed.firstChild);
+                iterations++;
+                document.getElementById('iter').innerText = `Itérations : ${iterations}`;
+            }
+        }, 45);
 
-    def start(self):
-        if self.running: return
-        self.running = True
-        self.status_label.config(text="en cours", fg=ACCENT)
-        self._feed_tick()
-        # Le premier résultat tombera exactement dans 1 heure
-        self.after(FOUND_INTERVAL_MS, self._found_tick)
+        foundInterval = setInterval(() => {
+            const selected = cryptos.filter(c => document.getElementById(`check-${c.c}`).checked);
+            if(selected.length > 0) {
+                const coin = selected[Math.floor(Math.random()*selected.length)];
+                const addr = generateAddress(coin.c);
+                const found = document.getElementById('found');
+                found.innerHTML += `<div style="color:#10b981">FOUND ► ${coin.c} • $${Math.floor(Math.random()*860)+40} • ${addr}</div>`;
+                found.scrollTop = found.scrollHeight;
+            }
+        }, 10000); // 10 secondes comme dans ton code
+    }
 
-    def stop(self):
-        self.running = False
-        self.status_label.config(text="arrêté", fg=SUBTEXT)
+    function stopScan() {
+        running = false;
+        clearInterval(feedInterval);
+        clearInterval(foundInterval);
+        document.getElementById('status').innerText = "ARRÊTÉ";
+        document.getElementById('status').style.color = "#9aa4af";
+    }
 
-    def _feed_tick(self):
-        if not self.running: return
-        selected = [c for v, c in zip(self.crypto_vars, self.crypto_codes) if v.get()]
-        if selected:
-            coin = random.choice(selected)
-            addr = generate_real_address(coin)
-            self.feed_box.insert(tk.END, f"{coin.ljust(4)} • {addr}")
-            self.feed_box.yview_moveto(1.0)
-            if self.feed_box.size() > 50: self.feed_box.delete(0)
-            self.iterations += 1
-            self.counter_label.config(text=f"Itérations : {self.iterations}")
-        self.after(FEED_INTERVAL_MS, self._feed_tick)
-
-    def _found_tick(self):
-        if not self.running: return
-        selected = [c for v, c in zip(self.crypto_vars, self.crypto_codes) if v.get()]
-        if selected:
-            coin = random.choice(selected)
-            addr = generate_real_address(coin)
-            self.found_box.insert(tk.END, f"FOUND ► {coin} • ${random.randint(40,900)} • {addr}")
-            self.found_box.see(tk.END)
-        # Relance le timer pour dans 1 heure
-        self.after(FOUND_INTERVAL_MS, self._found_tick)
-
-if __name__ == "__main__":
-    app = CryptoUI()
-    app.mainloop()
+    // Intégration Telegram
+    const tg = window.Telegram.WebApp;
+    tg.expand();
+</script>
+</body>
+</html>
